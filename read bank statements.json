@@ -1,0 +1,1377 @@
+{
+  "name": "read bank statements",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        160,
+        272
+      ],
+      "id": "6bb40f69-fed6-488f-aa86-7d2474ce39db",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "*statement*",
+        "returnAll": true,
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "value": "162DQAgfkUMu-B5spVT5wIQzlXlmnMqHV",
+            "mode": "list",
+            "cachedResultName": "invoices",
+            "cachedResultUrl": "https://drive.google.com/drive/folders/162DQAgfkUMu-B5spVT5wIQzlXlmnMqHV"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1056,
+        272
+      ],
+      "id": "28d53d13-6d4e-43f0-babf-62bfc8e61e90",
+      "name": "Search files and folders",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "ItGlKH8UeV4LkBDQ",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1280,
+        272
+      ],
+      "id": "3b722c94-9724-432d-9cf1-e645f8a6ca43",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {
+          "binaryPropertyName": "file_data"
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1840,
+        624
+      ],
+      "id": "0ae558ed-371e-41af-a372-9bc7957104fc",
+      "name": "Download file",
+      "alwaysOutputData": false,
+      "notesInFlow": false,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "ItGlKH8UeV4LkBDQ",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mistral.ai/v1/ocr",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"model\": \"mistral-ocr-latest\",\n    \"document\": {\n        \"type\": \"document_url\",\n        \"document_url\": \"data:application/pdf;base64,{{ $json.data_base64 }}\"\n     },\n\n     \"document_annotation_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"schema\": {\n        \"type\": \"array\",            \n        \"items\": {\n          \"type\": \"object\",\n          \"title\": \"Transaction\",\n          \"properties\": {\n            \"transaction_date\": {\"title\": \"Transaction Date\", \"type\": \"string\"},\n            \"supplier_or_customer_full_name\": {\"title\": \"Entity Name\", \"type\": \"string\"},\n            \"product_or_service\": {\"title\": \"Product\", \"type\": \"string\"},\n            \"amount\": {\"title\": \"Amount\", \"type\": \"string\"}\n\n          },\n          \"required\": [\n            \"transaction_date\",\n            \"supplier_or_customer_full_name\",\n            \"product_or_service\",\n            \"amount\"\n            \n          ],\n          \"additionalProperties\": false\n        }\n      },\n      \"name\": \"transactions\",\n      \"strict\": true\n    }\n  },\n\n    \"include_image_base64\": true\n}   ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2464,
+        624
+      ],
+      "id": "1ededd63-b528-47a8-8d2a-fbdb4d8355fd",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "Odvr5x33t32lb0LL",
+          "name": "Bearer Auth Mistral OCR"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "binaryToPropery",
+        "binaryPropertyName": "file_data",
+        "destinationKey": "data_base64",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        2144,
+        624
+      ],
+      "id": "81469dc3-0dc3-4813-bb63-12fc0cf4e4f3",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "document_annotation",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        3312,
+        736
+      ],
+      "id": "a3496ffc-21c2-4e25-8949-8b27a4ad783a",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1yzGtCGXHd4ngr_qIBkBKtEWzh5AasZXBF5_YB2f0fDo",
+          "mode": "list",
+          "cachedResultName": "transactions extracted",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1yzGtCGXHd4ngr_qIBkBKtEWzh5AasZXBF5_YB2f0fDo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1yzGtCGXHd4ngr_qIBkBKtEWzh5AasZXBF5_YB2f0fDo/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $('Split Out').item.json.transaction_date }}",
+            "company": "={{ $('Split Out').item.json.supplier_or_customer_full_name }}",
+            "details": "={{ $('Split Out').item.json.product_or_service }}",
+            "amount": "={{ $('Split Out').item.json.amount }}",
+            "ID": "={{ $json.index }}"
+          },
+          "matchingColumns": [
+            "ID"
+          ],
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "details",
+              "displayName": "details",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        3792,
+        896
+      ],
+      "id": "2f1c9182-564c-48e1-9e0e-7a420bfed49b",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "6hO4xH1L3ItSQtXQ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "1yzGtCGXHd4ngr_qIBkBKtEWzh5AasZXBF5_YB2f0fDo",
+          "mode": "list",
+          "cachedResultName": "transactions extracted",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1yzGtCGXHd4ngr_qIBkBKtEWzh5AasZXBF5_YB2f0fDo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1yzGtCGXHd4ngr_qIBkBKtEWzh5AasZXBF5_YB2f0fDo/edit#gid=0"
+        },
+        "keepFirstRow": true
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        608,
+        272
+      ],
+      "id": "22818c29-005a-481d-992f-9b6432ab54b3",
+      "name": "Clear sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "6hO4xH1L3ItSQtXQ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "copy",
+        "fileId": {
+          "__rl": true,
+          "value": "1yzGtCGXHd4ngr_qIBkBKtEWzh5AasZXBF5_YB2f0fDo",
+          "mode": "list",
+          "cachedResultName": "transactions extracted",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1yzGtCGXHd4ngr_qIBkBKtEWzh5AasZXBF5_YB2f0fDo/edit?usp=drivesdk"
+        },
+        "name": "=transactions extracted {{ $now }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1728,
+        -128
+      ],
+      "id": "7c3978ca-f671-4dc4-9a34-bb255fd7cd66",
+      "name": "Copy file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "ItGlKH8UeV4LkBDQ",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1504,
+        -128
+      ],
+      "id": "84a2ed71-470d-4df2-bddf-1869518a3972",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4b3c26c4-839b-4796-a812-903a6dbe6f94",
+              "leftValue": "={{ $('OCR model selection').item.json.Cloud_LLM }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1392,
+        736
+      ],
+      "id": "bf194f71-3133-46b5-9944-d13909d94972",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "file_data",
+        "options": {
+          "joinPages": true,
+          "keepSource": "json"
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        832
+      ],
+      "id": "bb8fbf46-5dc7-4e04-a8c1-5494943bbb56",
+      "name": "Extract from File1",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {
+          "binaryPropertyName": "file_data"
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1616,
+        832
+      ],
+      "id": "3bbe02d1-163a-434c-9041-6d611e8300de",
+      "name": "Download file1",
+      "alwaysOutputData": false,
+      "notesInFlow": false,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "ItGlKH8UeV4LkBDQ",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "magistral-small-2506@q8_0",
+          "mode": "id"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Output just a json array with transactions data: date, supplier company, service or product - object of the transactions and trnasaction details, amount.\nif the page does not constrain transactions return nothing\ndo not invent transactions or suppliers return only what you get on the input data.\nYou have just to process the data not create new data.\nNever put any word or sign in from the \"[\" which is the start of the array.\nYOU must adhere strictly to this rule when you give your response.\n\nUse this format strictly:\n\n[\n      {\n        \"transaction_date\": \"<dd/mm/yyyy>\",\n        \"supplier_or_customer_full_name\": \"<company name / supplier name>\",\n        \"product_or_service\": \"<transaction details / product name>\",\n        \"amount\": \"<amount>\"\n      },\n .....\n]\n\nExample:\n\n[\n      {\n        \"transaction_date\": \"01/03/2024\",\n        \"supplier_or_customer_full_name\": \"ESSENTIEL+LIBERTE FEE\",\n        \"product_or_service\": \"MAINTAINING THE ACCOUNT\",\n        \"amount\": \"19,60\"\n      },\n      {\n        \"transaction_date\": \"11/03/2024\",\n        \"supplier_or_customer_full_name\": \"VISA CARD COLLECTION\",\n        \"product_or_service\": \"PAYMENT TRANSACTION\",\n        \"amount\": \"5,50\"\n      },\n      {\n        \"transaction_date\": \"14/03/2024\",\n        \"supplier_or_customer_full_name\": \"BGL-BGL CREDIT TRANSFER\",\n        \"product_or_service\": \"BGL-BGL CREDIT TRANSFER\",\n        \"amount\": \"2.529,32\"\n      },\n      {\n        \"transaction_date\": \"15/03/2024\",\n        \"supplier_or_customer_full_name\": \"BipAndGo\",\n        \"product_or_service\": \"DIRECT DEBIT\",\n        \"amount\": \"42,10\"\n      },\n      {\n        \"transaction_date\": \"27/03/2024\",\n        \"supplier_or_customer_full_name\": \"PROXIMUS LUXEMBOURG S.A.\",\n        \"product_or_service\": \"DIRECT DEBIT\",\n        \"amount\": \"126,62\"\n      }\n]\n\n\n<PDF DATA>\n {{ $json.text }}"
+            },
+            {
+              "content": "you are a bank statement analyst \nyou always reply only in JSON array format and you do not put any text or quote signs before the JSON.\nyou start always with [ because it is a json array.",
+              "role": "system"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        2064,
+        832
+      ],
+      "id": "0fd91654-88bd-427e-b6fd-31417c3cab3f",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "reKm7aNJI8ZvoZer",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2688,
+        736
+      ],
+      "id": "b23cec01-99ff-497c-9a51-2172457a1bd5",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "=1BbI_0Xcadj-ydvy0leHdk24_KMikoK_7x_He4w_rdfQ",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1BbI_0Xcadj-ydvy0leHdk24_KMikoK_7x_He4w_rdfQ/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        2272,
+        -128
+      ],
+      "id": "2d73dfe6-e648-40b7-af52-f653ab894c04",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "6hO4xH1L3ItSQtXQ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "maxOutputTokens": 32000,
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        3056,
+        96
+      ],
+      "id": "419a69cd-4ca6-4ea3-a839-053f104f9cb7",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "s8YpZi9DOSO9b1mI",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=<data>\n{{ $json.All_transactions }}\n</data>\n\n\n\nRespond only with the raw JSON array. Do not include any explanatory text, comments, or Markdown formatting.\n\nYour entire response must be a valid, parsable JSON string. It must start with [ and end with ].\n\nOutput the data as a raw JSON object, not wrapped in a code block.",
+        "options": {
+          "systemMessage": "make me a table with all the suppliers, each supplier only once.\n\nAnalyze all supplier names first and If there are suppliers that seams to be the same with very small differences in the name group them as one. \nMake sure you consolidate the suppliers before making the finalist list for the output.\n\nAlso do not put in the list suppliers without a name (just put a place holder \"<name not found>\" )\n\nalso mark how many invoices i have to find for each\n\n\n\nOutput a raw Json file with the following format:\n\n[ {\n \"Supplier\" : \"<supplier name 1>\",\n \"Invoices\" : \"<number of invoices>\",\n \"Total value\" : \"<total value invoices supplier 1>\"\n}, \n{\n \"Supplier\" : \"<supplier name 2>\",\n \"Invoices\" : \"<number of invoices>\",\n \"Total value\" : \"<total value invoices supplier 2>\"\n}, ....\n\n\nEXAMPLE OUTPUT:\n\n[ { \"Supplier\": \"PayPal\", \"Invoices\": 1, \"Total value\": 157.37 },\n { \"Supplier\": \"AMAZON EU S.A R.L., NIEDERLASSUNG D\", \"Invoices\": 2, \"Total value\": 241.76 }\n ]\n\n\n\nRespond only with the raw JSON array. Do not include any explanatory text, comments, or Markdown formatting.\n\nYour entire response must be a valid, parsable JSON string. It must start with [ and end with ].\n\nOutput the data as a raw JSON object, not wrapped in a code block."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
+      "position": [
+        3024,
+        -336
+      ],
+      "id": "24aabbc5-81ff-4334-93cb-f6940ca8bfd2",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "All_transactions",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2528,
+        -128
+      ],
+      "id": "79630960-63ae-47a2-baa5-6c3253e5ede2",
+      "name": "Aggregate1"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1kGYCSVFPN8Azs1EGd1Hbcx0qryr0SwGkwBUaYX7mywA",
+          "mode": "list",
+          "cachedResultName": "invoice count per company",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kGYCSVFPN8Azs1EGd1Hbcx0qryr0SwGkwBUaYX7mywA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kGYCSVFPN8Azs1EGd1Hbcx0qryr0SwGkwBUaYX7mywA/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Company name": "={{ $json.Supplier }}",
+            "invoice count": "={{ $json.Invoices }}",
+            "invoice sum": "={{ $json['Total value'] }}"
+          },
+          "matchingColumns": [
+            "invoice sum"
+          ],
+          "schema": [
+            {
+              "id": "Company name",
+              "displayName": "Company name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "invoice count",
+              "displayName": "invoice count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invoice sum",
+              "displayName": "invoice sum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        4208,
+        -192
+      ],
+      "id": "298ce5a1-2de6-451d-87c7-827228b218ca",
+      "name": "Append or update row in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "6hO4xH1L3ItSQtXQ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "output",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        3808,
+        -512
+      ],
+      "id": "9f1ea003-0ea4-4969-95d6-905870e23a9d",
+      "name": "Split Out1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0eb2b447-a6c3-4bf8-9e0e-5a690ff1252f",
+              "name": "output",
+              "value": "={{ $json.output }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3584,
+        -512
+      ],
+      "id": "663edddf-cf17-4d22-8bb9-b011332af7cc",
+      "name": "Edit Fields6"
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "1kGYCSVFPN8Azs1EGd1Hbcx0qryr0SwGkwBUaYX7mywA",
+          "mode": "list",
+          "cachedResultName": "invoice count per company",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kGYCSVFPN8Azs1EGd1Hbcx0qryr0SwGkwBUaYX7mywA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kGYCSVFPN8Azs1EGd1Hbcx0qryr0SwGkwBUaYX7mywA/edit#gid=0"
+        },
+        "keepFirstRow": true
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1952,
+        -128
+      ],
+      "id": "40e79634-7e0a-4021-a2d5-1f81bc58f68d",
+      "name": "Clear sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "6hO4xH1L3ItSQtXQ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "35a787c8-413f-4b0b-b3e7-7e61c21ee305",
+              "name": "All_transactions",
+              "value": "={{ $json.All_transactions }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2800,
+        -128
+      ],
+      "id": "65e9727d-e630-4d36-bf2c-83a6bb758b8c",
+      "name": "Edit Fields5"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawResponse = $input.first().json.output;// Adjust 'response' if your data is in a different field\n\n// Find the first opening bracket or brace\nconst firstBracket = rawResponse.indexOf('[');\nconst firstBrace = rawResponse.indexOf('{');\nlet startIndex = -1;\n\nif (firstBracket !== -1 && firstBrace !== -1) {\n  startIndex = Math.min(firstBracket, firstBrace);\n} else if (firstBracket !== -1) {\n  startIndex = firstBracket;\n} else {\n  startIndex = firstBrace;\n}\n\n// Find the last closing bracket or brace\nconst lastBracket = rawResponse.lastIndexOf(']');\nconst lastBrace = rawResponse.lastIndexOf('}');\nlet endIndex = Math.max(lastBracket, lastBrace);\n\n// If we found a valid start and end, extract and parse the JSON\nif (startIndex !== -1 && endIndex !== -1) {\n  const jsonString = rawResponse.substring(startIndex, endIndex + 1);\n  try {\n    // Return the parsed JSON object for the next node\n    return JSON.parse(jsonString);\n  } catch (error) {\n    // If parsing fails, return an error\n    return { error: \"Failed to parse JSON\", details: error.message };\n  }\n}\n\n// If no JSON is found, return an error\nreturn { error: \"Could not find JSON in the input string.\" };\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3680,
+        -144
+      ],
+      "id": "e395172a-8791-47b7-aa70-de37068b8493",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "content": "## Option 1: \n### Conversion to Array and split in items",
+        "height": 240,
+        "width": 480,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        3504,
+        -592
+      ],
+      "typeVersion": 1,
+      "id": "b2224168-18d4-4c27-b5f8-f312c33f3c32",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Option 2: \n### Removal of potential wrapping, conversion to Array and split in items",
+        "height": 240,
+        "width": 480,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        3504,
+        -272
+      ],
+      "typeVersion": 1,
+      "id": "214121fb-1ad4-4b88-8e4c-04c0a6f9b694",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rule": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "edd6f7c2-8d9d-488a-a276-17599c7c4758",
+                    "leftValue": "={{ $('Aggregate1').item.json.All_transactions.length }}",
+                    "rightValue": 150,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gt"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "modelIndex": 2,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "d2223873-d8ca-41e3-b2d7-8f2c1bce22c4",
+                    "leftValue": "={{ $('Aggregate1').item.json.All_transactions.length }}",
+                    "rightValue": 150,
+                    "operator": {
+                      "type": "number",
+                      "operation": "lte"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.modelSelector",
+      "typeVersion": 1,
+      "position": [
+        3072,
+        -64
+      ],
+      "id": "32d37756-419c-4e39-9882-f5931c4fc5bc",
+      "name": "Model Selector"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "magistral-small-2506@q8_0",
+          "mode": "list",
+          "cachedResultName": "magistral-small-2506@q8_0"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        3264,
+        96
+      ],
+      "id": "f0c2841b-eb74-4e48-8c65-dc7161a52400",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "reKm7aNJI8ZvoZer",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": ".\n\n\n\n\n\n\n\n\n\n\n\n\n## Usiing a LLM - local AI model",
+        "height": 256,
+        "width": 1056,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1584,
+        800
+      ],
+      "typeVersion": 1,
+      "id": "f5aa029f-c2eb-4155-87a0-c8dd0956a774",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## Using mistral OCR annotate (set the variable 1 to switch)",
+        "height": 256,
+        "width": 1056,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1584,
+        528
+      ],
+      "typeVersion": 1,
+      "id": "50bea224-e2f0-4423-a592-a6ace2736a72",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4f41737e-a608-4922-9e13-6c4f34c96b59",
+              "name": "Cloud_LLM",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        384,
+        272
+      ],
+      "id": "d3caf0a7-ee84-42e5-b155-1ef9c7e12c7a",
+      "name": "OCR model selection"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "30ade407-85fa-4a46-bd80-6318c351dc58",
+              "name": "index",
+              "value": 0,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        832,
+        272
+      ],
+      "id": "65e71ba4-bf51-4976-a70d-00ad7aa998ee",
+      "name": "Index Counter"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3fae459f-881d-479b-b70a-3074d3516314",
+              "name": "document_annotation",
+              "value": "={{ $json.document_annotation }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2992,
+        736
+      ],
+      "id": "b27a39e1-1f37-4211-ab43-fcc6d6f71e41",
+      "name": "Convert to array"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3f8975d9-f3c9-4a75-a64e-4c8cf2dbf7da",
+              "name": "index",
+              "value": "={{  $('Index Counter').item.json.index  = $('Index Counter').item.json.index +1 }} ",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3536,
+        736
+      ],
+      "id": "a5e0d87e-e6f9-4ec4-a6e1-9a4acbd5febb",
+      "name": "Increment the index"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "53dbac2c-a741-4399-880d-27fc1442eb43",
+              "name": "document_annotation",
+              "value": "={{ $json.message.content.replace(/<think>[\\s\\S]*?<\\/think>/g, '')  }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2464,
+        832
+      ],
+      "id": "8090678c-234c-4180-916f-93434e696e90",
+      "name": "Remove the <think> part"
+    },
+    {
+      "parameters": {
+        "content": ".\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n## Use local model for less than 150 Rows and Gemini flash 2.5 for more than 150",
+        "height": 480,
+        "width": 416,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2992,
+        -112
+      ],
+      "typeVersion": 1,
+      "id": "5a1f1e3e-0b3f-42c4-b7da-89ebddf3838e",
+      "name": "Sticky Note4"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "OCR model selection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search files and folders": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Increment the index",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append or update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear sheet": {
+      "main": [
+        [
+          {
+            "node": "Index Counter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Copy file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download file1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File1": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file1": {
+      "main": [
+        [
+          {
+            "node": "Extract from File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Remove the <think> part",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Convert to array",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Copy file": {
+      "main": [
+        [
+          {
+            "node": "Clear sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Aggregate1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Model Selector",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out1": {
+      "main": [
+        []
+      ]
+    },
+    "Edit Fields6": {
+      "main": [
+        [
+          {
+            "node": "Split Out1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear sheet1": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields5": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model Selector": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Model Selector",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "OCR model selection": {
+      "main": [
+        [
+          {
+            "node": "Clear sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Index Counter": {
+      "main": [
+        [
+          {
+            "node": "Search files and folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to array": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increment the index": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove the <think> part": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "9b32173c-b631-4a4f-a2de-961e500d9461",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a8857fe3bb042a7e3e59271e27b02da0b59a8affaaa1bbc373002233658b61cf"
+  },
+  "id": "sulLh8ioesjUqutJ",
+  "tags": []
+}
